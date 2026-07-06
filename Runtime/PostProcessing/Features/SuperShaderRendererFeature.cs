@@ -1,7 +1,8 @@
-using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Rendering;
+using UnityEngine.Rendering.RenderGraphModule;
+using UnityEngine.Rendering.RenderGraphModule.Util;
 using UnityEngine.Rendering.Universal;
 
 namespace Linxium.SuperShader {
@@ -61,7 +62,6 @@ namespace Linxium.SuperShader {
             readonly Material tvStaticMaterial;
             readonly Material glitchTransitionMaterial;
             readonly List<Material> activeMaterials = new(3);
-            RTHandle tempTexture;
 
             public bool HasAnyMaterial =>
                 crtLookMaterial != null || tvStaticMaterial != null || glitchTransitionMaterial != null;
@@ -73,36 +73,22 @@ namespace Linxium.SuperShader {
                 renderPassEvent = RenderPassEvent.AfterRenderingPostProcessing;
                 profilingSampler = new ProfilingSampler(nameof(SuperShaderRenderPass));
                 ConfigureInput(ScriptableRenderPassInput.Color);
+                requiresIntermediateTexture = true;
             }
 
-            public void Release() {
-                tempTexture?.Release();
-            }
+            public void Release() { }
 
-            public override void OnCameraSetup(CommandBuffer cmd, ref RenderingData renderingData) {
-                var descriptor = renderingData.cameraData.cameraTargetDescriptor;
-                descriptor.depthBufferBits = 0;
-                RenderingUtils.ReAllocateIfNeeded(
-                    ref tempTexture,
-                    descriptor,
-                    FilterMode.Bilinear,
-                    TextureWrapMode.Clamp,
-                    name: "_SuperShaderTempTexture");
-            }
+            public override void RecordRenderGraph(RenderGraph renderGraph, ContextContainer frameData) {
+                var resourceData = frameData.Get<UniversalResourceData>();
+                var cameraData = frameData.Get<UniversalCameraData>();
 
-            public override void Execute(ScriptableRenderContext context, ref RenderingData renderingData) {
-                if (tempTexture == null) {
+                if (resourceData.isActiveTargetBackBuffer || cameraData.isSceneViewCamera) {
                     return;
                 }
 
-                if (renderingData.cameraData.isSceneViewCamera) {
-                    return;
-                }
-
-                var stack = VolumeManager.instance.stack;
-                var crtLook = stack.GetComponent<CrtLookVolume>();
-                var tvStatic = stack.GetComponent<TvStaticVolume>();
-                var glitch = stack.GetComponent<GlitchTransitionVolume>();
+                var crtLook = VolumeManager.instance.stack.GetComponent<CrtLookVolume>();
+                var tvStatic = VolumeManager.instance.stack.GetComponent<TvStaticVolume>();
+                var glitch = VolumeManager.instance.stack.GetComponent<GlitchTransitionVolume>();
 
                 activeMaterials.Clear();
                 if (IsGlitchActive(glitch) && glitchTransitionMaterial != null) {
@@ -124,23 +110,20 @@ namespace Linxium.SuperShader {
                     return;
                 }
 
-                var source = renderingData.cameraData.renderer.cameraColorTargetHandle;
-                var cmd = CommandBufferPool.Get();
-                using (new ProfilingScope(cmd, profilingSampler)) {
-                    var from = source;
-                    var to = tempTexture;
-                    for (int i = 0; i < activeMaterials.Count; i++) {
-                        Blitter.BlitCameraTexture(cmd, from, to, activeMaterials[i], 0);
-                        (from, to) = (to, from == source ? tempTexture : source);
-                    }
+                var source = resourceData.activeColorTexture;
+                for (int i = 0; i < activeMaterials.Count; i++) {
+                    var destinationDesc = renderGraph.GetTextureDesc(source);
+                    destinationDesc.name = $"SuperShaderPass{i}";
+                    destinationDesc.clearBuffer = false;
+                    TextureHandle destination = renderGraph.CreateTexture(destinationDesc);
 
-                    if (activeMaterials.Count % 2 == 1) {
-                        Blitter.BlitCameraTexture(cmd, tempTexture, source);
-                    }
+                    var blitParams = new RenderGraphUtils.BlitMaterialParameters(source, destination, activeMaterials[i], 0);
+                    renderGraph.AddBlitPass(blitParams, passName: $"SuperShader Blit {i}");
+
+                    source = destination;
                 }
 
-                context.ExecuteCommandBuffer(cmd);
-                CommandBufferPool.Release(cmd);
+                resourceData.cameraColor = source;
             }
 
             static bool IsCrtLookActive(CrtLookVolume volume) {
