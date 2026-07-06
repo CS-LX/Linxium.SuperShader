@@ -28,7 +28,6 @@ namespace Linxium.SuperShader {
         }
 
         protected override void Dispose(bool disposing) {
-            renderPass?.Release();
             CoreUtils.Destroy(crtLookMaterial);
             CoreUtils.Destroy(tvStaticMaterial);
             CoreUtils.Destroy(glitchTransitionMaterial);
@@ -75,8 +74,6 @@ namespace Linxium.SuperShader {
                 ConfigureInput(ScriptableRenderPassInput.Color);
                 requiresIntermediateTexture = true;
             }
-
-            public void Release() { }
 
             public override void RecordRenderGraph(RenderGraph renderGraph, ContextContainer frameData) {
                 var resourceData = frameData.Get<UniversalResourceData>();
@@ -153,6 +150,7 @@ namespace Linxium.SuperShader {
             static bool HasCrtOverride() =>
                 PostEffectOverrides.CRT.ScanlineIntensity > 0f
                 || PostEffectOverrides.CRT.DistortionAmount > 0f
+                || PostEffectOverrides.CRT.VignetteIntensity > 0f
                 || PostEffectOverrides.CRT.ChromaticAberration > 0f;
 
             static bool HasGlitchOverride() =>
@@ -165,15 +163,15 @@ namespace Linxium.SuperShader {
                 float scanline = PostEffectOverrides.CRT.ScanlineIntensity;
                 float distortion = PostEffectOverrides.CRT.DistortionAmount;
                 float chromatic = PostEffectOverrides.CRT.ChromaticAberration;
-                float scanlineSpeed = 8f;
-                float vignette = 0.12f;
+                float scanlineSpeed = PostEffectOverrides.CRT.ScanlineSpeed;
+                float vignette = PostEffectOverrides.CRT.VignetteIntensity;
 
                 if (volume != null && volume.IsActive()) {
                     scanline += volume.scanlineIntensity.value;
                     distortion += volume.distortionAmount.value;
                     chromatic += volume.chromaticAberration.value;
-                    scanlineSpeed = volume.scanlineSpeed.value;
-                    vignette = volume.vignetteIntensity.value;
+                    scanlineSpeed += volume.scanlineSpeed.value;
+                    vignette += volume.vignetteIntensity.value;
                 }
 
                 crtLookMaterial.SetFloat(ScanlineIntensityId, scanline);
@@ -185,12 +183,12 @@ namespace Linxium.SuperShader {
 
             void SetupTvStaticMaterial(TVStaticVolume volume) {
                 float noise = PostEffectOverrides.TV.NoiseIntensity;
-                float speed = 24f;
-                float monochrome = 1f;
+                float speed = PostEffectOverrides.TV.NoiseSpeed;
+                float monochrome = PostEffectOverrides.TV.Monochrome;
 
                 if (volume != null && volume.IsActive()) {
                     noise += volume.noiseIntensity.value;
-                    speed = volume.noiseSpeed.value;
+                    speed += volume.noiseSpeed.value;
                     monochrome = volume.monochrome.value;
                 }
 

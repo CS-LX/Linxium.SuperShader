@@ -16,20 +16,28 @@ namespace Linxium.SuperShader {
         public sealed class CRTLookState {
             public float ScanlineIntensity;
             public float DistortionAmount;
+            public float ScanlineSpeed;
+            public float VignetteIntensity;
             public float ChromaticAberration;
 
             public void Reset() {
                 ScanlineIntensity = 0f;
                 DistortionAmount = 0f;
+                ScanlineSpeed = 0f;
+                VignetteIntensity = 0f;
                 ChromaticAberration = 0f;
             }
         }
 
         public sealed class TVStaticState {
             public float NoiseIntensity;
+            public float NoiseSpeed;
+            public float Monochrome = 1f;
 
             public void Reset() {
                 NoiseIntensity = 0f;
+                NoiseSpeed = 0f;
+                Monochrome = 1f;
             }
         }
 
