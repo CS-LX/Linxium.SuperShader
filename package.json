@@ -1,9 +1,9 @@
 {
   "name": "com.linxium.supershader",
-  "version": "1.1.4",
+  "version": "1.2.0",
   "displayName": "Linxium SuperShader",
   "description": "Practical URP shaders and decoupled post-processing effects.",
-  "unity": "6000.2",
+  "unity": "2022.3",
   "author": {
     "name": "Linxium",
     "email": "1659404657@qq.com",
@@ -11,6 +11,6 @@
   },
   "license": "MIT",
   "dependencies": {
-    "com.unity.render-pipelines.universal": "17.3.0"
+    "com.unity.render-pipelines.universal": "14.0.11"
   }
 }

@@ -1,9 +1,11 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Rendering;
+using UnityEngine.Rendering.Universal;
+#if UNITY_6000_0_OR_NEWER
 using UnityEngine.Rendering.RenderGraphModule;
 using UnityEngine.Rendering.RenderGraphModule.Util;
-using UnityEngine.Rendering.Universal;
+#endif
 
 namespace Linxium.SuperShader {
     public sealed class SuperShaderRendererFeature : ScriptableRendererFeature {
@@ -28,6 +30,7 @@ namespace Linxium.SuperShader {
         }
 
         protected override void Dispose(bool disposing) {
+            renderPass?.ReleaseResources();
             CoreUtils.Destroy(crtLookMaterial);
             CoreUtils.Destroy(tvStaticMaterial);
             CoreUtils.Destroy(glitchTransitionMaterial);
@@ -61,6 +64,7 @@ namespace Linxium.SuperShader {
             readonly Material tvStaticMaterial;
             readonly Material glitchTransitionMaterial;
             readonly List<Material> activeMaterials = new(3);
+            RTHandle tempTexture;
 
             public bool HasAnyMaterial =>
                 crtLookMaterial != null || tvStaticMaterial != null || glitchTransitionMaterial != null;
@@ -72,9 +76,27 @@ namespace Linxium.SuperShader {
                 renderPassEvent = RenderPassEvent.AfterRenderingPostProcessing;
                 profilingSampler = new ProfilingSampler(nameof(SuperShaderRenderPass));
                 ConfigureInput(ScriptableRenderPassInput.Color);
+#if UNITY_6000_0_OR_NEWER
                 requiresIntermediateTexture = true;
+#endif
             }
 
+            public void ReleaseResources() {
+                tempTexture?.Release();
+            }
+
+            public override void OnCameraSetup(CommandBuffer cmd, ref RenderingData renderingData) {
+                var descriptor = renderingData.cameraData.cameraTargetDescriptor;
+                descriptor.depthBufferBits = 0;
+                RenderingUtils.ReAllocateIfNeeded(
+                    ref tempTexture,
+                    descriptor,
+                    FilterMode.Bilinear,
+                    TextureWrapMode.Clamp,
+                    name: "_SuperShaderTempTexture");
+            }
+
+#if UNITY_6000_0_OR_NEWER
             public override void RecordRenderGraph(RenderGraph renderGraph, ContextContainer frameData) {
                 var resourceData = frameData.Get<UniversalResourceData>();
                 var cameraData = frameData.Get<UniversalCameraData>();
@@ -83,27 +105,7 @@ namespace Linxium.SuperShader {
                     return;
                 }
 
-                var crtLook = VolumeManager.instance.stack.GetComponent<CRTLookVolume>();
-                var tvStatic = VolumeManager.instance.stack.GetComponent<TVStaticVolume>();
-                var glitch = VolumeManager.instance.stack.GetComponent<GlitchTransitionVolume>();
-
-                activeMaterials.Clear();
-                if (IsGlitchActive(glitch) && glitchTransitionMaterial != null) {
-                    SetupGlitchMaterial(glitch);
-                    activeMaterials.Add(glitchTransitionMaterial);
-                }
-
-                if (IsCrtLookActive(crtLook) && crtLookMaterial != null) {
-                    SetupCrtLookMaterial(crtLook);
-                    activeMaterials.Add(crtLookMaterial);
-                }
-
-                if (IsTvStaticActive(tvStatic) && tvStaticMaterial != null) {
-                    SetupTvStaticMaterial(tvStatic);
-                    activeMaterials.Add(tvStaticMaterial);
-                }
-
-                if (activeMaterials.Count == 0) {
+                if (!TryCollectActiveMaterials()) {
                     return;
                 }
 
@@ -122,6 +124,60 @@ namespace Linxium.SuperShader {
 
                 resourceData.cameraColor = source;
             }
+#endif
+
+            public override void Execute(ScriptableRenderContext context, ref RenderingData renderingData) {
+                if (renderingData.cameraData.isSceneViewCamera || tempTexture == null) {
+                    return;
+                }
+
+                if (!TryCollectActiveMaterials()) {
+                    return;
+                }
+
+                var source = renderingData.cameraData.renderer.cameraColorTargetHandle;
+                var cmd = CommandBufferPool.Get();
+                using (new ProfilingScope(cmd, profilingSampler)) {
+                    RTHandle from = source;
+                    RTHandle to = tempTexture;
+                    for (int i = 0; i < activeMaterials.Count; i++) {
+                        Blitter.BlitCameraTexture(cmd, from, to, activeMaterials[i], 0);
+                        (from, to) = (to, from);
+                    }
+
+                    if (from != source) {
+                        Blitter.BlitCameraTexture(cmd, from, source);
+                    }
+                }
+
+                context.ExecuteCommandBuffer(cmd);
+                CommandBufferPool.Release(cmd);
+            }
+
+            bool TryCollectActiveMaterials() {
+                activeMaterials.Clear();
+
+                var crtLook = VolumeManager.instance.stack.GetComponent<CRTLookVolume>();
+                var tvStatic = VolumeManager.instance.stack.GetComponent<TVStaticVolume>();
+                var glitch = VolumeManager.instance.stack.GetComponent<GlitchTransitionVolume>();
+
+                if (IsGlitchActive(glitch) && glitchTransitionMaterial != null) {
+                    SetupGlitchMaterial(glitch);
+                    activeMaterials.Add(glitchTransitionMaterial);
+                }
+
+                if (IsCrtLookActive(crtLook) && crtLookMaterial != null) {
+                    SetupCrtLookMaterial(crtLook);
+                    activeMaterials.Add(crtLookMaterial);
+                }
+
+                if (IsTvStaticActive(tvStatic) && tvStaticMaterial != null) {
+                    SetupTvStaticMaterial(tvStatic);
+                    activeMaterials.Add(tvStaticMaterial);
+                }
+
+                return activeMaterials.Count > 0;
+            }
 
             static bool IsCrtLookActive(CRTLookVolume volume) {
                 if (HasCrtOverride()) {
@@ -132,7 +188,7 @@ namespace Linxium.SuperShader {
             }
 
             static bool IsTvStaticActive(TVStaticVolume volume) {
-                if (PostEffectOverrides.TV.NoiseIntensity > 0f) {
+                if (HasTvOverride()) {
                     return true;
                 }
 
@@ -151,7 +207,12 @@ namespace Linxium.SuperShader {
                 PostEffectOverrides.CRT.ScanlineIntensity > 0f
                 || PostEffectOverrides.CRT.DistortionAmount > 0f
                 || PostEffectOverrides.CRT.VignetteIntensity > 0f
-                || PostEffectOverrides.CRT.ChromaticAberration > 0f;
+                || PostEffectOverrides.CRT.ChromaticAberration > 0f
+                || PostEffectOverrides.CRT.ScanlineSpeed > 0f;
+
+            static bool HasTvOverride() =>
+                PostEffectOverrides.TV.NoiseIntensity > 0f
+                || PostEffectOverrides.TV.NoiseSpeed > 0f;
 
             static bool HasGlitchOverride() =>
                 PostEffectOverrides.Glitch.GlitchStrength > 0f

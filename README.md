@@ -15,8 +15,12 @@
 
 ## 环境要求
 
-- Unity **6000.2+**
-- URP **17.3+**（Unity 6 Render Graph，无需 Compatibility Mode）
+| Unity 版本 | URP 版本 | 渲染路径 |
+|------------|----------|----------|
+| **2022.3 LTS+** | 14.0+ | 兼容路径（`Execute` + Blit） |
+| **6000+** | 17.0+ | Render Graph（自动，无需 Compatibility Mode） |
+
+后处理 Shader 源自 **26CGJ** 单体 CRT 方案（拆分为 Glitch / CRT / TV 三层）；手绘 Shader 源自 **Mask** 项目的 `HandDrawnWobble`。
 
 ---
 
@@ -60,6 +64,8 @@ SuperShaderRendererFeature（URP Renderer Feature）
     ↓  渲染顺序
 Glitch Transition → CRT Look → TV Static
 ```
+
+Unity 2022 / 2023 使用兼容路径（`Execute` + 全屏 Blit）；Unity 6 自动走 Render Graph。场景配置相同，无需切换 Compatibility Mode。
 
 ### 2.1 项目级配置（每个 URP 项目做一次）
 
