@@ -1,0 +1,16 @@
+{
+  "name": "com.linxium.supershader",
+  "version": "1.0.0",
+  "displayName": "LXLib-Super Shader",
+  "description": "",
+  "unity": "6000.2",
+  "author": {
+    "name": "Linxium",
+    "email": "1659404657@qq.com",
+    "url": "https://github.com/CS-LX/Linxium.SuperShader"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "com.unity.render-pipelines.universal": "17.3.0"
+  }
+}
