@@ -3,17 +3,17 @@ namespace Linxium.SuperShader {
     /// Runtime overrides layered on top of Volume settings. Used by transition presets and gameplay code.
     /// </summary>
     public static class PostEffectOverrides {
-        public static CrtLookState Crt { get; } = new();
-        public static TvStaticState Static { get; } = new();
+        public static CRTLookState CRT { get; } = new();
+        public static TVStaticState TV { get; } = new();
         public static GlitchState Glitch { get; } = new();
 
         public static void ResetAll() {
-            Crt.Reset();
-            Static.Reset();
+            CRT.Reset();
+            TV.Reset();
             Glitch.Reset();
         }
 
-        public sealed class CrtLookState {
+        public sealed class CRTLookState {
             public float ScanlineIntensity;
             public float DistortionAmount;
             public float ChromaticAberration;
@@ -25,7 +25,7 @@ namespace Linxium.SuperShader {
             }
         }
 
-        public sealed class TvStaticState {
+        public sealed class TVStaticState {
             public float NoiseIntensity;
 
             public void Reset() {

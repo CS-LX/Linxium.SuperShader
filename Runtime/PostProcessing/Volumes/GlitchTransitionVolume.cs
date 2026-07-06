@@ -12,10 +12,11 @@ namespace Linxium.SuperShader {
         public ClampedFloatParameter flash = new(0f, 0f, 1f);
 
         public bool IsActive() =>
-            glitchStrength.value > 0f
-            || rollY.value > 0f
-            || verticalCollapse.value > 0f
-            || flash.value > 0f;
+            active
+            && (glitchStrength.value > 0f
+                || rollY.value > 0f
+                || verticalCollapse.value > 0f
+                || flash.value > 0f);
 
         public bool IsTileCompatible() => false;
     }

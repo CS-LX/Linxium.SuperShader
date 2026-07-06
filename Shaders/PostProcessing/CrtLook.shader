@@ -1,4 +1,4 @@
-Shader "Hidden/Linxium/CrtLook"
+Shader "Hidden/Linxium/CRTLook"
 {
     SubShader
     {
@@ -10,7 +10,7 @@ Shader "Hidden/Linxium/CrtLook"
 
         Pass
         {
-            Name "CrtLook"
+            Name "CRTLook"
             ZWrite Off
             ZTest Always
             Cull Off

@@ -17,8 +17,8 @@ namespace Linxium.SuperShader {
         SuperShaderRenderPass renderPass;
 
         public override void Create() {
-            crtLookShader ??= Shader.Find("Hidden/Linxium/CrtLook");
-            tvStaticShader ??= Shader.Find("Hidden/Linxium/TvStatic");
+            crtLookShader ??= Shader.Find("Hidden/Linxium/CRTLook");
+            tvStaticShader ??= Shader.Find("Hidden/Linxium/TVStatic");
             glitchTransitionShader ??= Shader.Find("Hidden/Linxium/GlitchTransition");
 
             crtLookMaterial = CreateMaterial(crtLookShader);
@@ -86,8 +86,8 @@ namespace Linxium.SuperShader {
                     return;
                 }
 
-                var crtLook = VolumeManager.instance.stack.GetComponent<CrtLookVolume>();
-                var tvStatic = VolumeManager.instance.stack.GetComponent<TvStaticVolume>();
+                var crtLook = VolumeManager.instance.stack.GetComponent<CRTLookVolume>();
+                var tvStatic = VolumeManager.instance.stack.GetComponent<TVStaticVolume>();
                 var glitch = VolumeManager.instance.stack.GetComponent<GlitchTransitionVolume>();
 
                 activeMaterials.Clear();
@@ -126,34 +126,34 @@ namespace Linxium.SuperShader {
                 resourceData.cameraColor = source;
             }
 
-            static bool IsCrtLookActive(CrtLookVolume volume) {
-                if (volume == null || !volume.active) {
-                    return HasCrtOverride();
+            static bool IsCrtLookActive(CRTLookVolume volume) {
+                if (HasCrtOverride()) {
+                    return true;
                 }
 
-                return volume.IsActive() || HasCrtOverride();
+                return volume != null && volume.IsActive();
             }
 
-            static bool IsTvStaticActive(TvStaticVolume volume) {
-                if (volume == null || !volume.active) {
-                    return PostEffectOverrides.Static.NoiseIntensity > 0f;
+            static bool IsTvStaticActive(TVStaticVolume volume) {
+                if (PostEffectOverrides.TV.NoiseIntensity > 0f) {
+                    return true;
                 }
 
-                return volume.IsActive() || PostEffectOverrides.Static.NoiseIntensity > 0f;
+                return volume != null && volume.IsActive();
             }
 
             static bool IsGlitchActive(GlitchTransitionVolume volume) {
-                if (volume == null || !volume.active) {
-                    return HasGlitchOverride();
+                if (HasGlitchOverride()) {
+                    return true;
                 }
 
-                return volume.IsActive() || HasGlitchOverride();
+                return volume != null && volume.IsActive();
             }
 
             static bool HasCrtOverride() =>
-                PostEffectOverrides.Crt.ScanlineIntensity > 0f
-                || PostEffectOverrides.Crt.DistortionAmount > 0f
-                || PostEffectOverrides.Crt.ChromaticAberration > 0f;
+                PostEffectOverrides.CRT.ScanlineIntensity > 0f
+                || PostEffectOverrides.CRT.DistortionAmount > 0f
+                || PostEffectOverrides.CRT.ChromaticAberration > 0f;
 
             static bool HasGlitchOverride() =>
                 PostEffectOverrides.Glitch.GlitchStrength > 0f
@@ -161,14 +161,14 @@ namespace Linxium.SuperShader {
                 || PostEffectOverrides.Glitch.VerticalCollapse > 0f
                 || PostEffectOverrides.Glitch.Flash > 0f;
 
-            void SetupCrtLookMaterial(CrtLookVolume volume) {
-                float scanline = PostEffectOverrides.Crt.ScanlineIntensity;
-                float distortion = PostEffectOverrides.Crt.DistortionAmount;
-                float chromatic = PostEffectOverrides.Crt.ChromaticAberration;
+            void SetupCrtLookMaterial(CRTLookVolume volume) {
+                float scanline = PostEffectOverrides.CRT.ScanlineIntensity;
+                float distortion = PostEffectOverrides.CRT.DistortionAmount;
+                float chromatic = PostEffectOverrides.CRT.ChromaticAberration;
                 float scanlineSpeed = 8f;
                 float vignette = 0.12f;
 
-                if (volume != null && volume.active) {
+                if (volume != null && volume.IsActive()) {
                     scanline += volume.scanlineIntensity.value;
                     distortion += volume.distortionAmount.value;
                     chromatic += volume.chromaticAberration.value;
@@ -183,12 +183,12 @@ namespace Linxium.SuperShader {
                 crtLookMaterial.SetFloat(ChromaticAberrationId, chromatic);
             }
 
-            void SetupTvStaticMaterial(TvStaticVolume volume) {
-                float noise = PostEffectOverrides.Static.NoiseIntensity;
+            void SetupTvStaticMaterial(TVStaticVolume volume) {
+                float noise = PostEffectOverrides.TV.NoiseIntensity;
                 float speed = 24f;
                 float monochrome = 1f;
 
-                if (volume != null && volume.active) {
+                if (volume != null && volume.IsActive()) {
                     noise += volume.noiseIntensity.value;
                     speed = volume.noiseSpeed.value;
                     monochrome = volume.monochrome.value;
@@ -205,7 +205,7 @@ namespace Linxium.SuperShader {
                 float collapse = PostEffectOverrides.Glitch.VerticalCollapse;
                 float flash = PostEffectOverrides.Glitch.Flash;
 
-                if (volume != null && volume.active) {
+                if (volume != null && volume.IsActive()) {
                     glitch += volume.glitchStrength.value;
                     roll += volume.rollY.value;
                     collapse += volume.verticalCollapse.value;

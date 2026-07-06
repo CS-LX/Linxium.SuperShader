@@ -1,4 +1,4 @@
-Shader "Hidden/Linxium/TvStatic"
+Shader "Hidden/Linxium/TVStatic"
 {
     SubShader
     {
@@ -10,7 +10,7 @@ Shader "Hidden/Linxium/TvStatic"
 
         Pass
         {
-            Name "TvStatic"
+            Name "TVStatic"
             ZWrite Off
             ZTest Always
             Cull Off

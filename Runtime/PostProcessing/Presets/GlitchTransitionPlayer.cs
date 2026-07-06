@@ -46,10 +46,10 @@ namespace Linxium.SuperShader {
             while (elapsed < phaseA) {
                 elapsed += Delta(useUnscaledTime);
                 float t = elapsed / phaseA;
-                PostEffectOverrides.Crt.ScanlineIntensity = Mathf.Lerp(0f, 0.38f, t);
-                PostEffectOverrides.Crt.ChromaticAberration = Mathf.Lerp(0f, 0.045f, Smooth01(Mathf.Min(t / 0.4f, 1f)));
+                PostEffectOverrides.CRT.ScanlineIntensity = Mathf.Lerp(0f, 0.38f, t);
+                PostEffectOverrides.CRT.ChromaticAberration = Mathf.Lerp(0f, 0.045f, Smooth01(Mathf.Min(t / 0.4f, 1f)));
                 PostEffectOverrides.Glitch.GlitchStrength = Mathf.Lerp(0f, 1f, Smooth01(Mathf.Min(t / 0.42f, 1f)));
-                PostEffectOverrides.Crt.DistortionAmount = Mathf.Lerp(0f, 0.14f, Smooth01(Mathf.Min(t / 0.45f, 1f)));
+                PostEffectOverrides.CRT.DistortionAmount = Mathf.Lerp(0f, 0.14f, Smooth01(Mathf.Min(t / 0.45f, 1f)));
                 yield return null;
             }
 
@@ -71,11 +71,11 @@ namespace Linxium.SuperShader {
 
         static IEnumerator PowerOnRoutine(float duration, bool useUnscaledTime, Action onComplete) {
             PostEffectOverrides.Glitch.VerticalCollapse = 0.96f;
-            PostEffectOverrides.Crt.ScanlineIntensity = 0.42f;
-            PostEffectOverrides.Crt.ChromaticAberration = 0.04f;
+            PostEffectOverrides.CRT.ScanlineIntensity = 0.42f;
+            PostEffectOverrides.CRT.ChromaticAberration = 0.04f;
             PostEffectOverrides.Glitch.GlitchStrength = 0.9f;
             PostEffectOverrides.Glitch.RollY = 0.16f;
-            PostEffectOverrides.Crt.DistortionAmount = 0.1f;
+            PostEffectOverrides.CRT.DistortionAmount = 0.1f;
             PostEffectOverrides.Glitch.Flash = 0.22f;
 
             float elapsed = 0f;
@@ -86,9 +86,9 @@ namespace Linxium.SuperShader {
                 PostEffectOverrides.Glitch.VerticalCollapse = Mathf.Lerp(0.96f, 0f, t);
                 PostEffectOverrides.Glitch.RollY = Mathf.Lerp(0.16f, 0f, Smooth01(Mathf.Min(elapsed / (duration * 0.42f), 1f)));
                 PostEffectOverrides.Glitch.GlitchStrength = Mathf.Lerp(0.9f, 0f, Smooth01(Mathf.Min(elapsed / (duration * 0.52f), 1f)));
-                PostEffectOverrides.Crt.ChromaticAberration = Mathf.Lerp(0.04f, 0f, Smooth01(Mathf.Min(elapsed / (duration * 0.55f), 1f)));
-                PostEffectOverrides.Crt.ScanlineIntensity = Mathf.Lerp(0.42f, 0f, Smooth01(Mathf.Min(elapsed / length, 1f)));
-                PostEffectOverrides.Crt.DistortionAmount = Mathf.Lerp(0.1f, 0f, Smooth01(Mathf.Min(elapsed / (duration * 0.5f), 1f)));
+                PostEffectOverrides.CRT.ChromaticAberration = Mathf.Lerp(0.04f, 0f, Smooth01(Mathf.Min(elapsed / (duration * 0.55f), 1f)));
+                PostEffectOverrides.CRT.ScanlineIntensity = Mathf.Lerp(0.42f, 0f, Smooth01(Mathf.Min(elapsed / length, 1f)));
+                PostEffectOverrides.CRT.DistortionAmount = Mathf.Lerp(0.1f, 0f, Smooth01(Mathf.Min(elapsed / (duration * 0.5f), 1f)));
                 PostEffectOverrides.Glitch.Flash = Mathf.Lerp(0.22f, 0f, Smooth01(Mathf.Min(elapsed / (duration * 0.28f), 1f)));
                 yield return null;
             }
