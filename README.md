@@ -27,6 +27,8 @@
 
 URP 手绘风格顶点蠕动，适用于 Sprite / 透明物体，支持 Stencil。
 
+> CRT / TV 所有强度参数默认 **0**。必须勾选 **Active** 且对具体参数勾选 **Override** 并调大后才会生效。
+
 ### Post-processing（解耦三层）
 
 | 层 | Volume | 作用 |
