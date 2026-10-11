@@ -1,6 +1,6 @@
 {
   "name": "com.linxium.supershader",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "displayName": "Linxium SuperShader",
   "description": "Practical URP shaders and decoupled post-processing effects.",
   "unity": "2022.3",

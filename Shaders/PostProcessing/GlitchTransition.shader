@@ -26,6 +26,33 @@ Shader "Hidden/Linxium/GlitchTransition"
             float _GlitchStrength;
             float _VerticalCollapse;
             float _Flash;
+            float _SignalInterference;
+            float _SignalTime;
+
+            float SignalHash(float value)
+            {
+                return frac(sin(value * 127.1) * 43758.5453);
+            }
+
+            half3 AddSignalInterference(half3 source, float2 uv)
+            {
+                // Dense horizontal signal streaks, without moving the source pixels or splitting glyphs.
+                float row = floor(uv.y * 320.0);
+                float tick = floor(_SignalTime * 12.0);
+                float seed = row + tick * 0.37;
+                float jitter = SignalHash(seed) - 0.5;
+                float edge = smoothstep(0.08, 0.42, abs(uv.x - 0.5) + jitter * 0.12);
+                float streak = smoothstep(0.1, 0.7, SignalHash(row * 0.73 + tick * 0.13));
+                float scan = pow(saturate(sin(uv.y * 320.0 * 6.2831853) * 0.5 + 0.5), 5.0);
+                float fragment = smoothstep(0.35, 0.8,
+                    SignalHash(row * 1.31 + floor(uv.x * 38.0 + jitter * 4.0) + tick));
+                float density = scan * (0.12 + streak * 0.3 + edge * fragment * 0.7);
+                float hue = SignalHash(row * 0.53 + floor(_SignalTime * 2.0));
+                half3 tint = lerp(half3(0.42, 0.65, 0.75), half3(0.9, 0.52, 0.35), hue);
+                float brightness = max(source.r, max(source.g, source.b));
+                float textProtection = 1.0 - smoothstep(0.035, 0.22, brightness);
+                return source + tint * density * 0.28 * _SignalInterference * textProtection;
+            }
 
             float2 ApplyGlitchUV(float2 uv)
             {
@@ -61,6 +88,8 @@ Shader "Hidden/Linxium/GlitchTransition"
                 }
 
                 half4 color = SAMPLE_TEXTURE2D_X(_BlitTexture, sampler_LinearClamp, uv);
+                if (_SignalInterference > 0.001)
+                    color.rgb = AddSignalInterference(color.rgb, uv);
                 color.rgb += _Flash * half3(1.0, 0.9, 0.72);
                 return color;
             }

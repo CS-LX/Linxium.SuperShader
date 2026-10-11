@@ -8,7 +8,21 @@ using UnityEngine.Rendering.RenderGraphModule.Util;
 #endif
 
 namespace Linxium.SuperShader {
-    public sealed class SuperShaderRendererFeature : ScriptableRendererFeature {
+    public class SuperShaderRendererFeature : ScriptableRendererFeature {
+        /// <summary>Optional physical screen properties, unaffected by volumes or transition overrides.</summary>
+        public readonly struct CrtScreenProperties {
+            public float DistortionAmount { get; }
+            public float ChromaticAberration { get; }
+
+            public CrtScreenProperties(float distortionAmount, float chromaticAberration) {
+                DistortionAmount = Mathf.Clamp(distortionAmount, 0f, 0.5f);
+                ChromaticAberration = Mathf.Clamp(chromaticAberration, 0f, 0.05f);
+            }
+        }
+
+        /// <summary>Override to fix physical properties for this renderer. Null preserves volume/override behavior.</summary>
+        protected virtual CrtScreenProperties? FixedCrtScreen => null;
+
         [SerializeField] Shader crtLookShader;
         [SerializeField] Shader tvStaticShader;
         [SerializeField] Shader glitchTransitionShader;
@@ -26,7 +40,7 @@ namespace Linxium.SuperShader {
             crtLookMaterial = CreateMaterial(crtLookShader);
             tvStaticMaterial = CreateMaterial(tvStaticShader);
             glitchTransitionMaterial = CreateMaterial(glitchTransitionShader);
-            renderPass = new SuperShaderRenderPass(crtLookMaterial, tvStaticMaterial, glitchTransitionMaterial);
+            renderPass = new SuperShaderRenderPass(crtLookMaterial, tvStaticMaterial, glitchTransitionMaterial, FixedCrtScreen);
         }
 
         protected override void Dispose(bool disposing) {
@@ -59,10 +73,13 @@ namespace Linxium.SuperShader {
             static readonly int GlitchStrengthId = Shader.PropertyToID("_GlitchStrength");
             static readonly int VerticalCollapseId = Shader.PropertyToID("_VerticalCollapse");
             static readonly int FlashId = Shader.PropertyToID("_Flash");
+            static readonly int SignalInterferenceId = Shader.PropertyToID("_SignalInterference");
+            static readonly int SignalTimeId = Shader.PropertyToID("_SignalTime");
 
             readonly Material crtLookMaterial;
             readonly Material tvStaticMaterial;
             readonly Material glitchTransitionMaterial;
+            readonly CrtScreenProperties? fixedCrtScreen;
             readonly List<Material> activeMaterials = new(3);
 #if !UNITY_6000_0_OR_NEWER
             RTHandle tempTexture;
@@ -71,10 +88,11 @@ namespace Linxium.SuperShader {
             public bool HasAnyMaterial =>
                 crtLookMaterial != null || tvStaticMaterial != null || glitchTransitionMaterial != null;
 
-            public SuperShaderRenderPass(Material crtLook, Material tvStatic, Material glitchTransition) {
+            public SuperShaderRenderPass(Material crtLook, Material tvStatic, Material glitchTransition, CrtScreenProperties? screen) {
                 crtLookMaterial = crtLook;
                 tvStaticMaterial = tvStatic;
                 glitchTransitionMaterial = glitchTransition;
+                fixedCrtScreen = screen;
                 renderPassEvent = RenderPassEvent.AfterRenderingPostProcessing;
                 profilingSampler = new ProfilingSampler(nameof(SuperShaderRenderPass));
                 ConfigureInput(ScriptableRenderPassInput.Color);
@@ -185,8 +203,8 @@ namespace Linxium.SuperShader {
                 return activeMaterials.Count > 0;
             }
 
-            static bool IsCrtLookActive(CRTLookVolume volume) {
-                if (HasCrtOverride()) {
+            bool IsCrtLookActive(CRTLookVolume volume) {
+                if (fixedCrtScreen.HasValue || HasCrtOverride()) {
                     return true;
                 }
 
@@ -221,7 +239,8 @@ namespace Linxium.SuperShader {
                 || PostEffectOverrides.TV.NoiseSpeed > 0f;
 
             static bool HasGlitchOverride() =>
-                PostEffectOverrides.Glitch.GlitchStrength > 0f
+                PostEffectOverrides.Glitch.SignalInterference > 0f
+                || PostEffectOverrides.Glitch.GlitchStrength > 0f
                 || PostEffectOverrides.Glitch.RollY > 0f
                 || PostEffectOverrides.Glitch.VerticalCollapse > 0f
                 || PostEffectOverrides.Glitch.Flash > 0f;
@@ -239,6 +258,11 @@ namespace Linxium.SuperShader {
                     chromatic += volume.chromaticAberration.value;
                     scanlineSpeed += volume.scanlineSpeed.value;
                     vignette += volume.vignetteIntensity.value;
+                }
+
+                if (fixedCrtScreen.HasValue) {
+                    distortion = fixedCrtScreen.Value.DistortionAmount;
+                    chromatic = fixedCrtScreen.Value.ChromaticAberration;
                 }
 
                 crtLookMaterial.SetFloat(ScanlineIntensityId, scanline);
@@ -265,12 +289,14 @@ namespace Linxium.SuperShader {
             }
 
             void SetupGlitchMaterial(GlitchTransitionVolume volume) {
+                float signal = PostEffectOverrides.Glitch.SignalInterference;
                 float glitch = PostEffectOverrides.Glitch.GlitchStrength;
                 float roll = PostEffectOverrides.Glitch.RollY;
                 float collapse = PostEffectOverrides.Glitch.VerticalCollapse;
                 float flash = PostEffectOverrides.Glitch.Flash;
 
                 if (volume != null && volume.IsActive()) {
+                    signal += volume.signalInterference.value;
                     glitch += volume.glitchStrength.value;
                     roll += volume.rollY.value;
                     collapse += volume.verticalCollapse.value;
@@ -281,6 +307,8 @@ namespace Linxium.SuperShader {
                 glitchTransitionMaterial.SetFloat(RollYId, roll);
                 glitchTransitionMaterial.SetFloat(VerticalCollapseId, collapse);
                 glitchTransitionMaterial.SetFloat(FlashId, flash);
+                glitchTransitionMaterial.SetFloat(SignalInterferenceId, Mathf.Clamp01(signal));
+                glitchTransitionMaterial.SetFloat(SignalTimeId, Time.unscaledTime);
             }
         }
     }

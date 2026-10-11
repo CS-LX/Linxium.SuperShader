@@ -29,7 +29,7 @@
 在项目的 `Packages/manifest.json` 中添加：
 
 ```json
-"com.linxium.supershader": "https://github.com/CS-LX/Linxium.SuperShader.git"
+"com.linxium.supershader": "https://github.com/CS-LX/Linxium.SuperShader.git#v1.3.0"
 ```
 
 ---
@@ -105,6 +105,7 @@ Unity 2022 / 2023 使用兼容路径（`Execute` + 全屏 Blit）；Unity 6 自�
 | 参数 | 范围 | 默认 | 说明 |
 |------|------|------|------|
 | Glitch Strength | 0–1 | 0 | 水平撕裂 |
+| Signal Interference | 0–1 | 0 | 密集横向信号条纹；按亮度避让文字，不额外移动源像素 |
 | Roll Y | 0–1 | 0 | 垂直滚屏 |
 | Vertical Collapse | 0–1 | 0 | 垂直塌陷 |
 | Flash | 0–1 | 0 | 闪光 |
@@ -122,6 +123,7 @@ using Linxium.SuperShader;
 
 PostEffectOverrides.CRT.ScanlineIntensity = 0.3f;
 PostEffectOverrides.Glitch.GlitchStrength = 0.8f;
+PostEffectOverrides.Glitch.SignalInterference = 0.9f;
 PostEffectOverrides.ResetAll(); // 清除全部覆盖
 ```
 
@@ -143,6 +145,32 @@ IEnumerator SwitchScene() {
     GlitchTransitionPlayer.Play(GlitchTransitionKind.PowerOn);
 }
 ```
+
+---
+
+### 2.4 固定屏幕属性（可选）
+
+默认 `SuperShaderRendererFeature` 保持 1.2 的行为：曲面、色散可由 Volume 与运行时覆盖叠加，原有开关机预设不变。若项目将这两项视为固定屏幕属性，可继承 Renderer Feature，在代码中提供不可变参数，并在 URP Renderer Asset 中用子类替换原 Feature（不要同时添加两个）。
+
+```csharp
+using Linxium.SuperShader;
+
+public sealed class FixedScreenRendererFeature : SuperShaderRendererFeature {
+    protected override CrtScreenProperties? FixedCrtScreen => new CrtScreenProperties(0.12f, 0.02f);
+}
+```
+
+该模式优先于 Volume、运行时覆盖及转场预设中的曲面和色散值；停用或移除 Volume 也不会关闭固定屏幕。扫描线、暗角、噪声与故障仍按原规则工作。参数在 `Create()` 时取值；返回 `null` 则使用默认可配置模式。包不指定任何项目的物理常量、演出状态、输入或暂停策略，也不依赖业务程序集。
+
+### 2.5 持续可读的信号干扰
+
+`GlitchTransitionVolume.signalInterference` 与 `PostEffectOverrides.Glitch.SignalInterference` 相加后限制到 0～1。默认值为 0，不影响已有项目；纹理使用非缩放时间，`timeScale = 0` 时仍更新。效果以密集横线和两侧碎片为主，依据输入亮度避让亮色内容；可读性仍取决于字体、对比度及其他同时启用的效果。
+
+渐入、保持、呼吸与回落由调用方控制强度。`ResetAll()` 与现有开关机预设结束时会清除覆盖；需要跨转场保持时，由持有该效果的调用方在预设完成回调中重设强度。信号纹理与物理屏幕参数独立。
+
+### 2.6 测试
+
+消费项目可在 `Packages/manifest.json` 顶层添加 `"testables": ["com.linxium.supershader"]`，通过 Unity Test Runner 运行 `Linxium.SuperShader.Tests` 的 EditMode 测试，覆盖旧版叠加规则、固定屏幕优先级及信号 Volume／运行时混合与清理。
 
 ---
 

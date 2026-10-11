@@ -42,12 +42,14 @@ namespace Linxium.SuperShader {
         }
 
         public sealed class GlitchState {
+            public float SignalInterference;
             public float GlitchStrength;
             public float RollY;
             public float VerticalCollapse;
             public float Flash;
 
             public void Reset() {
+                SignalInterference = 0f;
                 GlitchStrength = 0f;
                 RollY = 0f;
                 VerticalCollapse = 0f;
